@@ -12,7 +12,8 @@ public interface WeatherService {
             @Query("lat") double lat,
             @Query("lon") double lon,
             @Query("appid") String apiKey,
-            @Query("units") String units
+            @Query("units") String units,
+            @Query("lang") String lang
     );
 
     @GET("forecast")
@@ -20,6 +21,7 @@ public interface WeatherService {
             @Query("lat") double lat,
             @Query("lon") double lon,
             @Query("appid") String apiKey,
-            @Query("units") String units
+            @Query("units") String units,
+            @Query("lang") String lang
     );
 }

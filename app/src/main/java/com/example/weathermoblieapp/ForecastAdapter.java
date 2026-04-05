@@ -24,21 +24,22 @@ public class ForecastAdapter extends RecyclerView.Adapter<ForecastAdapter.ViewHo
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_forecast, parent, false);
+        View view = LayoutInflater.from(parent.getContext())
+                .inflate(R.layout.item_forecast, parent, false);
         return new ViewHolder(view);
     }
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         ForecastResponse.ForecastItem item = forecastItems.get(position);
-        
-        // Format date/time
-        SimpleDateFormat sdf = new SimpleDateFormat("EEE HH:mm", Locale.getDefault());
-        holder.tvDay.setText(sdf.format(new Date(item.dt * 1000)));
-        
+
+        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm", new Locale("vi", "VN"));
+        holder.tvDay.setText(sdf.format(new Date(item.dt * 1000L)));
+
         holder.tvTemp.setText(Math.round(item.main.temp) + "°");
-        
-        String iconUrl = "https://openweathermap.org/img/wn/" + item.weather.get(0).icon + "@2x.png";
+
+        String iconUrl = "https://openweathermap.org/img/wn/"
+                + item.weather.get(0).icon + "@2x.png";
         Glide.with(holder.itemView.getContext()).load(iconUrl).into(holder.ivIcon);
     }
 
@@ -53,7 +54,7 @@ public class ForecastAdapter extends RecyclerView.Adapter<ForecastAdapter.ViewHo
 
         ViewHolder(View itemView) {
             super(itemView);
-            tvDay = itemView.findViewById(R.id.tvDay);
+            tvDay  = itemView.findViewById(R.id.tvDay);
             tvTemp = itemView.findViewById(R.id.tvForecastTemp);
             ivIcon = itemView.findViewById(R.id.ivForecastIcon);
         }

@@ -1,3 +1,52 @@
 <resources>
-    <string name="app_name">WeatherMoblieApp</string>
+    <string name="app_name">Thời Tiết</string>
+
+    <!-- Toolbar -->
+    <string name="toolbar_title">Thời Tiết Hôm Nay</string>
+
+    <!-- Weather Card -->
+    <string name="label_humidity">ĐỘ ẨM</string>
+    <string name="label_wind">GIÓ</string>
+    <string name="default_city">Hà Nội</string>
+    <string name="default_temp">24°</string>
+    <string name="default_description">Có mây</string>
+    <string name="default_humidity">65%</string>
+    <string name="default_wind">12 km/h</string>
+
+    <!-- Forecast Section -->
+    <string name="section_forecast">Dự Báo Theo Giờ</string>
+    <string name="default_forecast_temp">22°</string>
+    <string name="default_forecast_day">T2</string>
+
+    <!-- Map Section -->
+    <string name="section_map">Bản Đồ Thời Tiết</string>
+
+    <!-- Button -->
+    <string name="btn_switch_to_f">Chuyển sang °F</string>
+    <string name="btn_switch_to_c">Chuyển sang °C</string>
+
+    <!-- Toasts & Errors -->
+    <string name="error_fetch_weather">Không thể tải dữ liệu thời tiết</string>
+    <string name="marker_current_location">Vị Trí Của Bạn</string>
+
+    <!-- Notifications -->
+    <string name="notif_channel_id">weather_alerts</string>
+    <string name="notif_channel_name">Cảnh Báo Thời Tiết</string>
+    <string name="notif_title_heat">⚠️ Cảnh Báo Nhiệt Độ Cao</string>
+    <string name="notif_title_cold">🥶 Cảnh Báo Nhiệt Độ Thấp</string>
+    <string name="notif_msg_heat">Nhiệt độ tại %s đang là %d°C, vượt ngưỡng %d°C!</string>
+    <string name="notif_msg_cold">Nhiệt độ tại %s đang là %d°C, dưới ngưỡng %d°C!</string>
+    <string name="notif_title_update">Cập Nhật Thời Tiết</string>
+    <string name="notif_msg_update">Xem dự báo thời tiết mới nhất ngay!</string>
+
+    <!-- Threshold UI -->
+    <string name="section_threshold">Cảnh Báo Nhiệt Độ</string>
+    <string name="label_threshold_high">Ngưỡng nóng (°C)</string>
+    <string name="label_threshold_low">Ngưỡng lạnh (°C)</string>
+    <string name="threshold_saved">Đã lưu ngưỡng cảnh báo</string>
+
+    <!-- Humidity & Wind format -->
+    <string name="format_humidity">Độ ẩm: %d%%</string>
+    <string name="format_wind_ms">Gió: %.1f m/s</string>
+    <string name="format_wind_mph">Gió: %.1f mph</string>
 </resources>
