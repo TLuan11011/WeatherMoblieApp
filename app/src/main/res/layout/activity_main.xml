@@ -37,7 +37,9 @@
             android:orientation="vertical"
             android:padding="20dp">
 
-            <!-- Main Weather Card -->
+            <!-- ═══════════════════════════════════ -->
+            <!-- Main Weather Card                   -->
+            <!-- ═══════════════════════════════════ -->
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -166,7 +168,9 @@
                 </androidx.constraintlayout.widget.ConstraintLayout>
             </FrameLayout>
 
-            <!-- Hourly Forecast Section -->
+            <!-- ═══════════════════════════════════ -->
+            <!-- Hourly Forecast                     -->
+            <!-- ═══════════════════════════════════ -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -208,7 +212,9 @@
 
             </FrameLayout>
 
-            <!-- Daily Forecast Section -->
+            <!-- ═══════════════════════════════════ -->
+            <!-- Daily Forecast                      -->
+            <!-- ═══════════════════════════════════ -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -234,7 +240,9 @@
 
             </FrameLayout>
 
-            <!-- Threshold Alert Section -->
+            <!-- ═══════════════════════════════════ -->
+            <!-- Threshold Alert                     -->
+            <!-- ═══════════════════════════════════ -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -260,9 +268,9 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
+                        android:layout_marginBottom="16dp"
                         android:gravity="center_vertical"
-                        android:layout_marginBottom="16dp">
+                        android:orientation="horizontal">
 
                         <TextView
                             android:layout_width="0dp"
@@ -277,10 +285,10 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="2"
-                            android:valueFrom="25"
-                            android:valueTo="45"
                             android:stepSize="1"
                             android:value="35"
+                            android:valueFrom="25"
+                            android:valueTo="45"
                             app:thumbColor="@color/white"
                             app:trackColorActive="#FF6B6B"
                             app:trackColorInactive="#40FFFFFF" />
@@ -301,8 +309,8 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical">
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
 
                         <TextView
                             android:layout_width="0dp"
@@ -317,10 +325,10 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="2"
-                            android:valueFrom="-10"
-                            android:valueTo="20"
                             android:stepSize="1"
                             android:value="10"
+                            android:valueFrom="-10"
+                            android:valueTo="20"
                             app:thumbColor="@color/white"
                             app:trackColorActive="#6BB5FF"
                             app:trackColorInactive="#40FFFFFF" />
@@ -341,7 +349,9 @@
 
             </FrameLayout>
 
-            <!-- Map Section -->
+            <!-- ═══════════════════════════════════ -->
+            <!-- Map Section                         -->
+            <!-- ═══════════════════════════════════ -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -352,9 +362,74 @@
                 android:textColor="@color/white"
                 android:textSize="20sp" />
 
+            <!-- Nút chọn layer bản đồ -->
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="10dp"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="4dp">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnLayerTemp"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:layout_marginEnd="8dp"
+                        android:text="🌡️ Nhiệt độ"
+                        android:textColor="@color/white"
+                        android:textSize="12sp"
+                        app:backgroundTint="@color/glass_white_heavy"
+                        app:cornerRadius="20dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnLayerClouds"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:layout_marginEnd="8dp"
+                        android:text="☁️ Mây"
+                        android:textColor="@color/white"
+                        android:textSize="12sp"
+                        app:backgroundTint="@color/glass_white_heavy"
+                        app:cornerRadius="20dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnLayerRain"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:layout_marginEnd="8dp"
+                        android:text="🌧️ Mưa"
+                        android:textColor="@color/white"
+                        android:textSize="12sp"
+                        app:backgroundTint="@color/glass_white_heavy"
+                        app:cornerRadius="20dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnLayerWind"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:text="💨 Gió"
+                        android:textColor="@color/white"
+                        android:textSize="12sp"
+                        app:backgroundTint="@color/glass_white_heavy"
+                        app:cornerRadius="20dp" />
+
+                </LinearLayout>
+
+            </HorizontalScrollView>
+
+            <!-- Google Map -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
-                android:layout_height="250dp"
+                android:layout_height="280dp"
                 app:cardCornerRadius="24dp"
                 app:cardElevation="0dp"
                 app:strokeColor="#40FFFFFF"
@@ -368,6 +443,7 @@
 
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- Nút chuyển đơn vị -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnToggleUnit"
                 style="@style/Widget.Material3.Button.TonalButton"
