@@ -8,28 +8,13 @@
     android:background="@drawable/weather_gradient_bg"
     tools:context=".MainActivity">
 
-    <com.google.android.material.appbar.AppBarLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@android:color/transparent"
-        app:elevation="0dp">
 
-        <androidx.appcompat.widget.Toolbar
-            android:id="@+id/toolbar"
-            android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
-            app:title="@string/toolbar_title"
-            app:titleCentered="true"
-            app:titleTextColor="@color/white" />
-
-    </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipToPadding="false"
-        android:paddingBottom="32dp"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+        android:paddingBottom="32dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -90,7 +75,6 @@
                         android:layout_height="wrap_content"
                         android:alpha="0.8"
                         android:letterSpacing="0.1"
-                        android:text="@string/default_description"
                         android:textAllCaps="true"
                         android:textColor="@color/white"
                         android:textSize="16sp"
