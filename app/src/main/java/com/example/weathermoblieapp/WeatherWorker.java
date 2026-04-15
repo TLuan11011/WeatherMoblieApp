@@ -1,13 +1,9 @@
 package com.example.weathermoblieapp;
-
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
+import android.util.Log;
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.os.Build;
 
 import androidx.annotation.NonNull;
-import androidx.core.app.NotificationCompat;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
@@ -21,8 +17,8 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class WeatherWorker extends Worker {
 
-    private static final String CHANNEL_ID = "weather_alerts";
-    private static final String API_KEY    = "076a2fc17d5de3b400bb4eb9c216d6c1";
+    private static final String API_KEY = "076a2fc17d5de3b400bb4eb9c216d6c1";
+    private static final String PREFS   = "weather_prefs";
 
     public WeatherWorker(@NonNull Context context, @NonNull WorkerParameters params) {
         super(context, params);
@@ -32,13 +28,14 @@ public class WeatherWorker extends Worker {
     @Override
     public Result doWork() {
         SharedPreferences prefs = getApplicationContext()
-                .getSharedPreferences("weather_prefs", Context.MODE_PRIVATE);
+                .getSharedPreferences(PREFS, Context.MODE_PRIVATE);
 
-        float lat          = prefs.getFloat("lat", Float.MIN_VALUE);
-        float lon          = prefs.getFloat("lon", Float.MIN_VALUE);
-        int   threshHigh   = prefs.getInt("threshold_high", 35);
-        int   threshLow    = prefs.getInt("threshold_low", 10);
+        float lat        = prefs.getFloat("lat", Float.MIN_VALUE);
+        float lon        = prefs.getFloat("lon", Float.MIN_VALUE);
+        int   threshHigh = prefs.getInt("threshold_high", 35);
+        int   threshLow  = prefs.getInt("threshold_low", 10);
 
+        // Chưa có vị trí → bỏ qua
         if (lat == Float.MIN_VALUE || lon == Float.MIN_VALUE) return Result.success();
 
         try {
@@ -48,55 +45,87 @@ public class WeatherWorker extends Worker {
                     .build();
 
             WeatherService service = retrofit.create(WeatherService.class);
-            Call<WeatherResponse> call = service.getCurrentWeather(lat, lon, API_KEY, "metric", "vi");
-            Response<WeatherResponse> response = call.execute(); // synchronous trong Worker
+
+            // Gọi API đồng bộ (bắt buộc trong Worker)
+            Call<WeatherResponse> call = service.getCurrentWeather(
+                    lat, lon, API_KEY, "metric", "vi");
+            Response<WeatherResponse> response = call.execute();
 
             if (response.isSuccessful() && response.body() != null) {
-                WeatherResponse weather = response.body();
-                int currentTemp = Math.round(weather.main.temp);
-                String cityName = weather.name;
+                WeatherResponse weather    = response.body();
+                int            currentTemp = Math.round(weather.main.temp);
+                String         city        = weather.name;
+                String         description = weather.weather.get(0).description;
+                int            weatherId   = weather.weather.get(0).id;
 
+                // ── Cảnh báo nhiệt độ cao ──
                 if (currentTemp >= threshHigh) {
-                    String title = getApplicationContext().getString(R.string.notif_title_heat);
-                    String msg   = getApplicationContext().getString(
-                            R.string.notif_msg_heat, cityName, currentTemp, threshHigh);
-                    showNotification(title, msg, 1001);
-                } else if (currentTemp <= threshLow) {
-                    String title = getApplicationContext().getString(R.string.notif_title_cold);
-                    String msg   = getApplicationContext().getString(
-                            R.string.notif_msg_cold, cityName, currentTemp, threshLow);
-                    showNotification(title, msg, 1002);
+                    WeatherNotificationHelper.show(
+                            getApplicationContext(),
+                            getApplicationContext().getString(R.string.notif_title_heat),
+                            getApplicationContext().getString(
+                                    R.string.notif_msg_heat, city, currentTemp, threshHigh),
+                            3001);
+                }
+
+                // ── Cảnh báo nhiệt độ thấp ──
+                if (currentTemp <= threshLow) {
+                    WeatherNotificationHelper.show(
+                            getApplicationContext(),
+                            getApplicationContext().getString(R.string.notif_title_cold),
+                            getApplicationContext().getString(
+                                    R.string.notif_msg_cold, city, currentTemp, threshLow),
+                            3002);
+                }
+
+                // ── Giông bão (200–232) ──
+                if (weatherId >= 200 && weatherId <= 232) {
+                    WeatherNotificationHelper.show(
+                            getApplicationContext(),
+                            "⛈️ Cảnh Báo Giông Bão",
+                            city + " đang có giông bão: " + description,
+                            3003);
+                }
+                // ── Mưa rất to / mưa cực to ──
+                else if (weatherId == 502 || weatherId == 503
+                        || weatherId == 504 || weatherId == 522) {
+                    WeatherNotificationHelper.show(
+                            getApplicationContext(),
+                            "🌧️ Cảnh Báo Mưa Lớn",
+                            city + " đang có mưa lớn: " + description,
+                            3004);
+                }
+                // ── Mưa phùn / mưa nhẹ / mưa vừa (300–531) ──
+                else if (weatherId >= 300 && weatherId <= 531) {
+                    WeatherNotificationHelper.show(
+                            getApplicationContext(),
+                            "🌦️ Thông Báo Mưa",
+                            city + " đang có mưa: " + description,
+                            3005);
+                }
+                // ── Tuyết (600–622) ──
+                else if (weatherId >= 600 && weatherId <= 622) {
+                    WeatherNotificationHelper.show(
+                            getApplicationContext(),
+                            "❄️ Cảnh Báo Tuyết",
+                            city + " đang có tuyết: " + description,
+                            3006);
+                }
+                // ── Sương mù / tầm nhìn kém (700–781) ──
+                else if (weatherId >= 700 && weatherId <= 781) {
+                    WeatherNotificationHelper.show(
+                            getApplicationContext(),
+                            "🌫️ Cảnh Báo Tầm Nhìn Kém",
+                            city + " đang có: " + description,
+                            3007);
                 }
             }
+
         } catch (Exception e) {
-            return Result.retry();
+            Log.e("WeatherWorker", "Lỗi khi kiểm tra thời tiết", e);
+            return Result.retry(); // Tự thử lại nếu lỗi mạng
         }
 
         return Result.success();
-    }
-
-    private void showNotification(String title, String message, int notifId) {
-        NotificationManager nm = (NotificationManager)
-                getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID,
-                    getApplicationContext().getString(R.string.notif_channel_name),
-                    NotificationManager.IMPORTANCE_HIGH
-            );
-            nm.createNotificationChannel(channel);
-        }
-
-        NotificationCompat.Builder builder =
-                new NotificationCompat.Builder(getApplicationContext(), CHANNEL_ID)
-                        .setSmallIcon(R.mipmap.ic_launcher)
-                        .setContentTitle(title)
-                        .setContentText(message)
-                        .setStyle(new NotificationCompat.BigTextStyle().bigText(message))
-                        .setPriority(NotificationCompat.PRIORITY_HIGH)
-                        .setAutoCancel(true);
-
-        nm.notify(notifId, builder.build());
     }
 }

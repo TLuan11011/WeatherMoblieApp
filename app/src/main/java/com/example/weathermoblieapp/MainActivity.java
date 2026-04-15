@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Button;
@@ -57,10 +58,11 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback {
 
-    private static final String API_KEY  = "076a2fc17d5de3b400bb4eb9c216d6c1";
-    private static final int    LOC_PERM = 1000;
-    private static final String PREFS    = "weather_prefs";
-    private static final String WORK_TAG = "weather_check";
+    private static final String API_KEY   = "076a2fc17d5de3b400bb4eb9c216d6c1";
+    private static final int    LOC_PERM  = 1000;
+    private static final int    NOTIF_PERM = 1001;
+    private static final String PREFS     = "weather_prefs";
+    private static final String WORK_TAG  = "weather_check";
 
     private FusedLocationProviderClient fusedLocationClient;
     private WeatherService weatherService;
@@ -110,7 +112,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 getSupportFragmentManager().findFragmentById(R.id.mapFragment);
         if (mapFragment != null) mapFragment.getMapAsync(this);
 
-        checkLocationPermission();
+        checkPermissions();
 
         btnToggleUnit.setOnClickListener(v -> {
             isCelsius = !isCelsius;
@@ -167,6 +169,68 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     // ─────────────────────────────────────────────
+    // Permissions
+    // ─────────────────────────────────────────────
+
+    private void checkPermissions() {
+        // Xin quyền POST_NOTIFICATIONS (Android 13+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ActivityCompat.checkSelfPermission(this,
+                    Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                        NOTIF_PERM);
+            }
+        }
+
+        // Xin quyền vị trí
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOC_PERM);
+        } else {
+            getLastLocation();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == LOC_PERM
+                && grantResults.length > 0
+                && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            getLastLocation();
+        }
+
+        // NOTIF_PERM: không cần xử lý thêm,
+        // WeatherNotificationHelper tự hoạt động khi được cấp quyền
+    }
+
+    // ─────────────────────────────────────────────
+    // Location
+    // ─────────────────────────────────────────────
+
+    private void getLastLocation() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) return;
+
+        fusedLocationClient.getLastLocation().addOnSuccessListener(this, location -> {
+            if (location != null) {
+                currentLat = location.getLatitude();
+                currentLon = location.getLongitude();
+                saveLocation(currentLat, currentLon);
+                fetchWeatherData(currentLat, currentLon);
+                updateMapLocation(currentLat, currentLon);
+                scheduleWeatherWorker();
+            }
+        });
+    }
+
+    // ─────────────────────────────────────────────
     // Threshold
     // ─────────────────────────────────────────────
 
@@ -214,54 +278,13 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     // ─────────────────────────────────────────────
-    // Location
-    // ─────────────────────────────────────────────
-
-    private void checkLocationPermission() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOC_PERM);
-        } else {
-            getLastLocation();
-        }
-    }
-
-    private void getLastLocation() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) return;
-
-        fusedLocationClient.getLastLocation().addOnSuccessListener(this, location -> {
-            if (location != null) {
-                currentLat = location.getLatitude();
-                currentLon = location.getLongitude();
-                saveLocation(currentLat, currentLon);
-                fetchWeatherData(currentLat, currentLon);
-                updateMapLocation(currentLat, currentLon);
-                scheduleWeatherWorker();
-            }
-        });
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode,
-                                           @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == LOC_PERM
-                && grantResults.length > 0
-                && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            getLastLocation();
-        }
-    }
-
-    // ─────────────────────────────────────────────
-    // WorkManager
+    // WorkManager — chạy nền mỗi 1 giờ
     // ─────────────────────────────────────────────
 
     private void scheduleWeatherWorker() {
         PeriodicWorkRequest workRequest = new PeriodicWorkRequest.Builder(
-                WeatherWorker.class, 1, TimeUnit.HOURS).build();
+                WeatherWorker.class, 1, TimeUnit.HOURS)
+                .build();
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
                 WORK_TAG,
                 ExistingPeriodicWorkPolicy.KEEP,
@@ -290,6 +313,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         Toast.makeText(MainActivity.this,
                                 getString(R.string.error_fetch_weather),
                                 Toast.LENGTH_SHORT).show();
+                        Log.e("MainActivity", "Lỗi thời tiết hiện tại", t);
                     }
                 });
 
@@ -344,7 +368,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 + weather.weather.get(0).icon + "@4x.png";
         Glide.with(this).load(iconUrl).into(ivWeatherIcon);
 
-        // Kiểm tra ngưỡng và thời tiết xấu (chỉ khi đang dùng °C)
+        // Chỉ kiểm tra ngưỡng khi đang dùng °C để tránh so sánh sai đơn vị
         if (isCelsius) checkAndNotify(weather);
     }
 
@@ -358,7 +382,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         String description = weather.weather.get(0).description;
         int    weatherId   = weather.weather.get(0).id;
 
-        // Cảnh báo nhiệt độ cao
+        // ── Cảnh báo nhiệt độ cao ──
         if (currentTemp >= thresholdHigh) {
             WeatherNotificationHelper.show(
                     this,
@@ -367,7 +391,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     2001);
         }
 
-        // Cảnh báo nhiệt độ thấp
+        // ── Cảnh báo nhiệt độ thấp ──
         if (currentTemp <= thresholdLow) {
             WeatherNotificationHelper.show(
                     this,
@@ -376,7 +400,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     2002);
         }
 
-        // Giông bão (200–232)
+        // ── Giông bão (200–232) ──
         if (weatherId >= 200 && weatherId <= 232) {
             WeatherNotificationHelper.show(
                     this,
@@ -384,7 +408,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     city + " đang có giông bão: " + description,
                     2003);
         }
-        // Mưa rất to / mưa cực to (502, 503, 504, 522)
+        // ── Mưa rất to / mưa cực to (502, 503, 504, 522) ──
         else if (weatherId == 502 || weatherId == 503
                 || weatherId == 504 || weatherId == 522) {
             WeatherNotificationHelper.show(
@@ -393,7 +417,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     city + " đang có mưa lớn: " + description,
                     2004);
         }
-        // Mưa phùn / mưa nhẹ / mưa vừa (300–531)
+        // ── Mưa phùn / mưa nhẹ / mưa vừa (300–531) ──
         else if (weatherId >= 300 && weatherId <= 531) {
             WeatherNotificationHelper.show(
                     this,
@@ -401,7 +425,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     city + " đang có mưa: " + description,
                     2005);
         }
-        // Tuyết (600–622)
+        // ── Tuyết (600–622) ──
         else if (weatherId >= 600 && weatherId <= 622) {
             WeatherNotificationHelper.show(
                     this,
@@ -409,7 +433,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     city + " đang có tuyết: " + description,
                     2006);
         }
-        // Sương mù / khói / tầm nhìn kém (700–781)
+        // ── Sương mù / khói / tầm nhìn kém (700–781) ──
         else if (weatherId >= 700 && weatherId <= 781) {
             WeatherNotificationHelper.show(
                     this,
@@ -512,7 +536,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private void switchWeatherLayer(String layerType) {
         if (mMap == null) return;
 
-        // Xóa layer cũ trước khi thêm layer mới
+        // Xóa layer cũ
         if (currentTileOverlay != null) {
             currentTileOverlay.remove();
             currentTileOverlay = null;
