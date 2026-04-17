@@ -18,28 +18,46 @@
         android:textSize="15sp"
         android:fontFamily="sans-serif-medium" />
 
-    <!-- Giọt nước + % mưa -->
+    <!-- Giọt nước + % mưa + mm mưa -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_weight="1.2"
-        android:orientation="horizontal"
+        android:layout_weight="1.5"
+        android:orientation="vertical"
         android:gravity="center">
 
-        <TextView
+        <!-- % xác suất -->
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="💧"
-            android:textSize="11sp" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="💧"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/tvRainProb"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="1%"
+                android:textColor="#80AADDFF"
+                android:textSize="12sp"
+                android:layout_marginStart="2dp" />
+
+        </LinearLayout>
+
+        <!-- mm mưa -->
         <TextView
-            android:id="@+id/tvRainProb"
+            android:id="@+id/tvRainMm"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="1%"
-            android:textColor="#80AADDFF"
-            android:textSize="12sp"
-            android:layout_marginStart="2dp" />
+            android:text="0.0 mm"
+            android:textColor="#60AADDFF"
+            android:textSize="10sp" />
 
     </LinearLayout>
 

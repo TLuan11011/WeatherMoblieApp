@@ -24,5 +24,18 @@ public class ForecastResponse {
 
         @SerializedName("pop")
         public float pop;
+
+        @SerializedName("rain")
+        public Rain rain;
+
+        public static class Rain {
+            @SerializedName("3h")
+            public float threeHour; // mm mưa trong 3 giờ
+        }
+
+        // Lấy mm mưa, trả về 0 nếu không có mưa
+        public float getRainMm() {
+            return (rain != null) ? rain.threeHour : 0f;
+        }
     }
 }

@@ -4,8 +4,11 @@ import android.Manifest;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -58,42 +61,49 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback {
 
-    private static final String API_KEY   = "076a2fc17d5de3b400bb4eb9c216d6c1";
-    private static final int    LOC_PERM  = 1000;
-    private static final int    NOTIF_PERM = 1001;
-    private static final String PREFS     = "weather_prefs";
-    private static final String WORK_TAG  = "weather_check";
+    private static final String API_KEY = "076a2fc17d5de3b400bb4eb9c216d6c1";
+    private static final int LOC_PERM = 1000;
+    private static final int NOTIF_PERM = 1001;
+    private static final String PREFS = "weather_prefs";
+    private static final String WORK_TAG = "weather_check";
+    private static final long TILE_REFRESH_MS = 10 * 60 * 1000L; // 10 phút
 
     private FusedLocationProviderClient fusedLocationClient;
     private WeatherService weatherService;
     private GoogleMap mMap;
     private TileOverlay currentTileOverlay;
+    private String currentLayerType = "temp_new";
+
+    private final Handler tileRefreshHandler = new Handler(Looper.getMainLooper());
+    private final Runnable tileRefreshRunnable = new Runnable() {
+        @Override
+        public void run() {
+            switchWeatherLayer(currentLayerType);
+            tileRefreshHandler.postDelayed(this, TILE_REFRESH_MS);
+        }
+    };
 
     // Views - Weather Card
-    private TextView  tvCityName, tvTemperature, tvDescription, tvHumidity, tvWindSpeed;
+    private TextView tvCityName, tvTemperature, tvDescription, tvHumidity, tvWindSpeed;
     private ImageView ivWeatherIcon;
 
     // Views - Forecast
-    private RecyclerView         rvForecast, rvDailyForecast;
+    private RecyclerView rvForecast, rvDailyForecast;
     private TemperatureChartView temperatureChart;
 
     // Views - Threshold
-    private Slider   sliderHigh, sliderLow;
+    private Slider sliderHigh, sliderLow;
     private TextView tvHighValue, tvLowValue;
 
     // Views - Controls
     private Button btnToggleUnit;
     private Button btnLayerTemp, btnLayerClouds, btnLayerRain, btnLayerWind;
 
-    private boolean isCelsius     = true;
-    private double  currentLat    = 0;
-    private double  currentLon    = 0;
-    private int     thresholdHigh = 35;
-    private int     thresholdLow  = 10;
-
-    // ─────────────────────────────────────────────
-    // Lifecycle
-    // ─────────────────────────────────────────────
+    private boolean isCelsius = true;
+    private double currentLat = 0;
+    private double currentLon = 0;
+    private int thresholdHigh = 35;
+    private int thresholdLow = 10;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -110,7 +120,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         SupportMapFragment mapFragment = (SupportMapFragment)
                 getSupportFragmentManager().findFragmentById(R.id.mapFragment);
-        if (mapFragment != null) mapFragment.getMapAsync(this);
+        if (mapFragment != null) {
+            mapFragment.getMapAsync(this);
+        }
 
         checkPermissions();
 
@@ -123,29 +135,40 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         });
     }
 
-    // ─────────────────────────────────────────────
-    // Init Views
-    // ─────────────────────────────────────────────
+    @Override
+    protected void onResume() {
+        super.onResume();
+        tileRefreshHandler.postDelayed(tileRefreshRunnable, TILE_REFRESH_MS);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        tileRefreshHandler.removeCallbacks(tileRefreshRunnable);
+    }
 
     private void initViews() {
-        tvCityName       = findViewById(R.id.tvCityName);
-        tvTemperature    = findViewById(R.id.tvTemperature);
-        tvDescription    = findViewById(R.id.tvDescription);
-        tvHumidity       = findViewById(R.id.tvHumidity);
-        tvWindSpeed      = findViewById(R.id.tvWindSpeed);
-        ivWeatherIcon    = findViewById(R.id.ivWeatherIcon);
-        rvForecast       = findViewById(R.id.rvForecast);
-        rvDailyForecast  = findViewById(R.id.rvDailyForecast);
-        btnToggleUnit    = findViewById(R.id.btnToggleUnit);
+        tvCityName = findViewById(R.id.tvCityName);
+        tvTemperature = findViewById(R.id.tvTemperature);
+        tvDescription = findViewById(R.id.tvDescription);
+        tvHumidity = findViewById(R.id.tvHumidity);
+        tvWindSpeed = findViewById(R.id.tvWindSpeed);
+        ivWeatherIcon = findViewById(R.id.ivWeatherIcon);
+
+        rvForecast = findViewById(R.id.rvForecast);
+        rvDailyForecast = findViewById(R.id.rvDailyForecast);
+        btnToggleUnit = findViewById(R.id.btnToggleUnit);
         temperatureChart = findViewById(R.id.temperatureChart);
-        sliderHigh       = findViewById(R.id.sliderHigh);
-        sliderLow        = findViewById(R.id.sliderLow);
-        tvHighValue      = findViewById(R.id.tvHighValue);
-        tvLowValue       = findViewById(R.id.tvLowValue);
-        btnLayerTemp     = findViewById(R.id.btnLayerTemp);
-        btnLayerClouds   = findViewById(R.id.btnLayerClouds);
-        btnLayerRain     = findViewById(R.id.btnLayerRain);
-        btnLayerWind     = findViewById(R.id.btnLayerWind);
+
+        sliderHigh = findViewById(R.id.sliderHigh);
+        sliderLow = findViewById(R.id.sliderLow);
+        tvHighValue = findViewById(R.id.tvHighValue);
+        tvLowValue = findViewById(R.id.tvLowValue);
+
+        btnLayerTemp = findViewById(R.id.btnLayerTemp);
+        btnLayerClouds = findViewById(R.id.btnLayerClouds);
+        btnLayerRain = findViewById(R.id.btnLayerRain);
+        btnLayerWind = findViewById(R.id.btnLayerWind);
     }
 
     private void setupRetrofit() {
@@ -168,12 +191,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         });
     }
 
-    // ─────────────────────────────────────────────
-    // Permissions
-    // ─────────────────────────────────────────────
-
     private void checkPermissions() {
-        // Xin quyền POST_NOTIFICATIONS (Android 13+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ActivityCompat.checkSelfPermission(this,
                     Manifest.permission.POST_NOTIFICATIONS)
@@ -184,11 +202,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
         }
 
-        // Xin quyền vị trí
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+        if (ActivityCompat.checkSelfPermission(this,
+                Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOC_PERM);
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                    LOC_PERM);
         } else {
             getLastLocation();
         }
@@ -205,18 +224,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             getLastLocation();
         }
-
-        // NOTIF_PERM: không cần xử lý thêm,
-        // WeatherNotificationHelper tự hoạt động khi được cấp quyền
     }
 
-    // ─────────────────────────────────────────────
-    // Location
-    // ─────────────────────────────────────────────
-
     private void getLastLocation() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) return;
+        if (ActivityCompat.checkSelfPermission(this,
+                Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
 
         fusedLocationClient.getLastLocation().addOnSuccessListener(this, location -> {
             if (location != null) {
@@ -230,14 +245,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         });
     }
 
-    // ─────────────────────────────────────────────
-    // Threshold
-    // ─────────────────────────────────────────────
-
     private void loadThresholds() {
         SharedPreferences prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         thresholdHigh = prefs.getInt("threshold_high", 35);
-        thresholdLow  = prefs.getInt("threshold_low", 10);
+        thresholdLow = prefs.getInt("threshold_low", 10);
     }
 
     private void saveThresholds() {
@@ -277,35 +288,29 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         });
     }
 
-    // ─────────────────────────────────────────────
-    // WorkManager — chạy nền mỗi 1 giờ
-    // ─────────────────────────────────────────────
-
     private void scheduleWeatherWorker() {
         PeriodicWorkRequest workRequest = new PeriodicWorkRequest.Builder(
                 WeatherWorker.class, 1, TimeUnit.HOURS)
                 .build();
+
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
                 WORK_TAG,
                 ExistingPeriodicWorkPolicy.KEEP,
-                workRequest);
+                workRequest
+        );
     }
-
-    // ─────────────────────────────────────────────
-    // API Calls
-    // ─────────────────────────────────────────────
 
     private void fetchWeatherData(double lat, double lon) {
         String units = isCelsius ? "metric" : "imperial";
 
-        // Thời tiết hiện tại
         weatherService.getCurrentWeather(lat, lon, API_KEY, units, "vi")
                 .enqueue(new Callback<WeatherResponse>() {
                     @Override
                     public void onResponse(Call<WeatherResponse> call,
                                            Response<WeatherResponse> response) {
-                        if (response.isSuccessful() && response.body() != null)
+                        if (response.isSuccessful() && response.body() != null) {
                             updateUI(response.body());
+                        }
                     }
 
                     @Override
@@ -317,7 +322,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     }
                 });
 
-        // Dự báo theo giờ + 5 ngày
         weatherService.getForecast(lat, lon, API_KEY, units, "vi")
                 .enqueue(new Callback<ForecastResponse>() {
                     @Override
@@ -326,19 +330,17 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         if (response.isSuccessful() && response.body() != null) {
                             List<ForecastResponse.ForecastItem> items = response.body().list;
 
-                            // Dự báo theo giờ
                             rvForecast.setAdapter(new ForecastAdapter(items));
 
-                            // Biểu đồ nhiệt độ
                             List<Float> temps = new ArrayList<>();
                             List<Float> probs = new ArrayList<>();
+
                             for (ForecastResponse.ForecastItem item : items) {
                                 temps.add(item.main.temp);
                                 probs.add(item.pop);
                             }
-                            temperatureChart.setData(temps, probs);
 
-                            // Dự báo 5 ngày
+                            temperatureChart.setData(temps, probs);
                             buildDailyForecast(items);
                         }
                     }
@@ -350,16 +352,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 });
     }
 
-    // ─────────────────────────────────────────────
-    // UI Update
-    // ─────────────────────────────────────────────
-
     private void updateUI(WeatherResponse weather) {
         tvCityName.setText(weather.name);
         tvTemperature.setText(Math.round(weather.main.temp) + (isCelsius ? "°C" : "°F"));
         tvDescription.setText(weather.weather.get(0).description);
+
         tvHumidity.setText(String.format(
                 getString(R.string.format_humidity), weather.main.humidity));
+
         tvWindSpeed.setText(isCelsius
                 ? String.format(getString(R.string.format_wind_ms), weather.wind.speed)
                 : String.format(getString(R.string.format_wind_mph), weather.wind.speed));
@@ -368,84 +368,59 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 + weather.weather.get(0).icon + "@4x.png";
         Glide.with(this).load(iconUrl).into(ivWeatherIcon);
 
-        // Chỉ kiểm tra ngưỡng khi đang dùng °C để tránh so sánh sai đơn vị
-        if (isCelsius) checkAndNotify(weather);
+        if (isCelsius) {
+            checkAndNotify(weather);
+        }
     }
 
-    // ─────────────────────────────────────────────
-    // Notifications
-    // ─────────────────────────────────────────────
-
     private void checkAndNotify(WeatherResponse weather) {
-        int    currentTemp = Math.round(weather.main.temp);
-        String city        = weather.name;
+        int currentTemp = Math.round(weather.main.temp);
+        String city = weather.name;
         String description = weather.weather.get(0).description;
-        int    weatherId   = weather.weather.get(0).id;
+        int weatherId = weather.weather.get(0).id;
 
-        // ── Cảnh báo nhiệt độ cao ──
         if (currentTemp >= thresholdHigh) {
-            WeatherNotificationHelper.show(
-                    this,
+            WeatherNotificationHelper.show(this,
                     getString(R.string.notif_title_heat),
                     getString(R.string.notif_msg_heat, city, currentTemp, thresholdHigh),
                     2001);
         }
 
-        // ── Cảnh báo nhiệt độ thấp ──
         if (currentTemp <= thresholdLow) {
-            WeatherNotificationHelper.show(
-                    this,
+            WeatherNotificationHelper.show(this,
                     getString(R.string.notif_title_cold),
                     getString(R.string.notif_msg_cold, city, currentTemp, thresholdLow),
                     2002);
         }
 
-        // ── Giông bão (200–232) ──
         if (weatherId >= 200 && weatherId <= 232) {
-            WeatherNotificationHelper.show(
-                    this,
+            WeatherNotificationHelper.show(this,
                     "⛈️ Cảnh Báo Giông Bão",
                     city + " đang có giông bão: " + description,
                     2003);
-        }
-        // ── Mưa rất to / mưa cực to (502, 503, 504, 522) ──
-        else if (weatherId == 502 || weatherId == 503
+        } else if (weatherId == 502 || weatherId == 503
                 || weatherId == 504 || weatherId == 522) {
-            WeatherNotificationHelper.show(
-                    this,
+            WeatherNotificationHelper.show(this,
                     "🌧️ Cảnh Báo Mưa Lớn",
                     city + " đang có mưa lớn: " + description,
                     2004);
-        }
-        // ── Mưa phùn / mưa nhẹ / mưa vừa (300–531) ──
-        else if (weatherId >= 300 && weatherId <= 531) {
-            WeatherNotificationHelper.show(
-                    this,
+        } else if (weatherId >= 300 && weatherId <= 531) {
+            WeatherNotificationHelper.show(this,
                     "🌦️ Thông Báo Mưa",
                     city + " đang có mưa: " + description,
                     2005);
-        }
-        // ── Tuyết (600–622) ──
-        else if (weatherId >= 600 && weatherId <= 622) {
-            WeatherNotificationHelper.show(
-                    this,
+        } else if (weatherId >= 600 && weatherId <= 622) {
+            WeatherNotificationHelper.show(this,
                     "❄️ Cảnh Báo Tuyết",
                     city + " đang có tuyết: " + description,
                     2006);
-        }
-        // ── Sương mù / khói / tầm nhìn kém (700–781) ──
-        else if (weatherId >= 700 && weatherId <= 781) {
-            WeatherNotificationHelper.show(
-                    this,
+        } else if (weatherId >= 700 && weatherId <= 781) {
+            WeatherNotificationHelper.show(this,
                     "🌫️ Cảnh Báo Tầm Nhìn Kém",
                     city + " đang có: " + description,
                     2007);
         }
     }
-
-    // ─────────────────────────────────────────────
-    // Daily Forecast
-    // ─────────────────────────────────────────────
 
     private void buildDailyForecast(List<ForecastResponse.ForecastItem> items) {
         Map<String, List<ForecastResponse.ForecastItem>> byDay = new LinkedHashMap<>();
@@ -457,38 +432,44 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             byDay.get(key).add(item);
         }
 
+        String todayKey = keyFmt.format(new Date());
+
         List<DailyForecastItem> dailyItems = new ArrayList<>();
         SimpleDateFormat dayFmt = new SimpleDateFormat("EEEE", new Locale("vi", "VN"));
-        int index = 0;
 
         for (Map.Entry<String, List<ForecastResponse.ForecastItem>> entry : byDay.entrySet()) {
             List<ForecastResponse.ForecastItem> dayEntries = entry.getValue();
 
-            float  maxTemp = Float.MIN_VALUE;
-            float  minTemp = Float.MAX_VALUE;
-            float  maxPop  = 0;
-            String icon    = dayEntries.get(0).weather.get(0).icon;
+            float maxTemp = Float.MIN_VALUE;
+            float minTemp = Float.MAX_VALUE;
+            float maxPop = 0;
+            float totalRainMm = 0;
+            String icon = dayEntries.get(0).weather.get(0).icon;
 
             for (ForecastResponse.ForecastItem e : dayEntries) {
                 if (e.main.temp > maxTemp) maxTemp = e.main.temp;
                 if (e.main.temp < minTemp) minTemp = e.main.temp;
                 if (e.pop > maxPop) {
                     maxPop = e.pop;
-                    icon   = e.weather.get(0).icon;
+                    icon = e.weather.get(0).icon;
                 }
+                totalRainMm += e.getRainMm();
             }
 
             DailyForecastItem daily = new DailyForecastItem();
-            daily.tempMax     = maxTemp;
-            daily.tempMin     = minTemp;
-            daily.icon        = icon;
+            daily.tempMax = maxTemp;
+            daily.tempMin = minTemp;
+            daily.icon = icon;
             daily.rainPercent = Math.round(maxPop * 100);
-            daily.dayName     = (index == 0)
-                    ? "Hôm nay"
-                    : formatDayName(entry.getKey(), dayFmt);
+            daily.rainMm = totalRainMm;
+
+            if (entry.getKey().equals(todayKey)) {
+                daily.dayName = "Hôm nay";
+            } else {
+                daily.dayName = formatDayName(entry.getKey(), dayFmt);
+            }
 
             dailyItems.add(daily);
-            index++;
         }
 
         rvDailyForecast.setAdapter(new DailyForecastAdapter(dailyItems));
@@ -496,7 +477,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private String formatDayName(String dateKey, SimpleDateFormat dayFmt) {
         try {
-            Date   date = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateKey);
+            Date date = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateKey);
             String name = dayFmt.format(date);
             return name.substring(0, 1).toUpperCase() + name.substring(1);
         } catch (Exception e) {
@@ -504,39 +485,78 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
     }
 
-    // ─────────────────────────────────────────────
-    // Google Maps
-    // ─────────────────────────────────────────────
-
     @Override
     public void onMapReady(@NonNull GoogleMap googleMap) {
         mMap = googleMap;
+        mMap.getUiSettings().setZoomControlsEnabled(true);
+        mMap.getUiSettings().setZoomGesturesEnabled(true);
+        mMap.getUiSettings().setScrollGesturesEnabled(true);
+        mMap.getUiSettings().setRotateGesturesEnabled(true);
+        mMap.getUiSettings().setTiltGesturesEnabled(true);
+        mMap.getUiSettings().setMyLocationButtonEnabled(false);
+
         setupMapLayerButtons();
         switchWeatherLayer("temp_new");
+        setActiveLayerButton(btnLayerTemp);
     }
 
     private void updateMapLocation(double lat, double lon) {
         if (mMap == null) return;
+
         LatLng location = new LatLng(lat, lon);
         mMap.clear();
         mMap.addMarker(new MarkerOptions()
                 .position(location)
                 .title(getString(R.string.marker_current_location)));
-        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(location, 8));
-        switchWeatherLayer("temp_new");
+        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 8), 1000, null);
+
+        switchWeatherLayer(currentLayerType);
     }
 
     private void setupMapLayerButtons() {
-        btnLayerTemp.setOnClickListener(v   -> switchWeatherLayer("temp_new"));
-        btnLayerClouds.setOnClickListener(v -> switchWeatherLayer("clouds_new"));
-        btnLayerRain.setOnClickListener(v   -> switchWeatherLayer("precipitation_new"));
-        btnLayerWind.setOnClickListener(v   -> switchWeatherLayer("wind_new"));
+        btnLayerTemp.setOnClickListener(v -> {
+            switchWeatherLayer("temp_new");
+            setActiveLayerButton(btnLayerTemp);
+        });
+
+        btnLayerClouds.setOnClickListener(v -> {
+            switchWeatherLayer("clouds_new");
+            setActiveLayerButton(btnLayerClouds);
+        });
+
+        btnLayerRain.setOnClickListener(v -> {
+            switchWeatherLayer("precipitation_new");
+            setActiveLayerButton(btnLayerRain);
+        });
+
+        btnLayerWind.setOnClickListener(v -> {
+            switchWeatherLayer("wind_new");
+            setActiveLayerButton(btnLayerWind);
+        });
+    }
+
+    private void setActiveLayerButton(Button activeBtn) {
+        Button[] allBtns = {btnLayerTemp, btnLayerClouds, btnLayerRain, btnLayerWind};
+
+        for (Button btn : allBtns) {
+            if (btn == activeBtn) {
+                btn.setBackgroundTintList(
+                        android.content.res.ColorStateList.valueOf(Color.WHITE));
+                btn.setTextColor(Color.parseColor("#29323c"));
+            } else {
+                btn.setBackgroundTintList(
+                        android.content.res.ColorStateList.valueOf(
+                                Color.parseColor("#40FFFFFF")));
+                btn.setTextColor(Color.WHITE);
+            }
+        }
     }
 
     private void switchWeatherLayer(String layerType) {
         if (mMap == null) return;
 
-        // Xóa layer cũ
+        currentLayerType = layerType;
+
         if (currentTileOverlay != null) {
             currentTileOverlay.remove();
             currentTileOverlay = null;
@@ -545,18 +565,26 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         TileProvider tileProvider = new UrlTileProvider(256, 256) {
             @Override
             public URL getTileUrl(int x, int y, int zoom) {
+                long timestamp = System.currentTimeMillis() / TILE_REFRESH_MS;
+
                 String s = String.format(
-                        "https://tile.openweathermap.org/map/%s/%d/%d/%d.png?appid=%s",
-                        layerType, zoom, x, y, API_KEY);
+                        Locale.US,
+                        "https://tile.openweathermap.org/map/%s/%d/%d/%d.png?appid=%s&_t=%d",
+                        layerType, zoom, x, y, API_KEY, timestamp
+                );
+
                 try {
                     return new URL(s);
                 } catch (MalformedURLException e) {
-                    throw new AssertionError(e);
+                    return null;
                 }
             }
         };
 
         currentTileOverlay = mMap.addTileOverlay(
-                new TileOverlayOptions().tileProvider(tileProvider));
+                new TileOverlayOptions()
+                        .tileProvider(tileProvider)
+                        .transparency(0.2f)
+        );
     }
 }
